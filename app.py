@@ -33,14 +33,34 @@ def get_db():
 def health():
     """FI: Rahti ja selain näkevät, että sovellus on pystyssä.
     EN: Lets Rahti and your browser see the app is up."""
-    return jsonify(status="ok", endpoints=["/api/artists", "/api/artists/<id>/events",
-                                           "/api/timetable?day=YYYY-MM-DD", "POST /api/events"])
+    return jsonify(status="ok", endpoints=["/api/artists", "/api/days", "/api/stages",
+                                           "/api/artists/<id>/events", "/api/timetable?day=YYYY-MM-DD",
+                                           "POST /api/events", "DELETE /api/events/<id>"])
 
 
 @app.get("/api/artists")
 def get_artists():
     conn = get_db()
     rows = conn.execute("SELECT artist_id, name, country FROM Artist ORDER BY name").fetchall()
+    conn.close()
+    return jsonify([dict(r) for r in rows])
+
+
+@app.get("/api/days")
+def get_days():
+    """FI: Apuendpoint: festivaalipäivät (tarkistin hakee tästä day_id:n).
+    EN: Helper endpoint: festival days (the checker reads day_id from here)."""
+    conn = get_db()
+    rows = conn.execute("SELECT day_id, date FROM Day ORDER BY date").fetchall()
+    conn.close()
+    return jsonify([dict(r) for r in rows])
+
+
+@app.get("/api/stages")
+def get_stages():
+    """FI: Apuendpoint: lavat. EN: Helper endpoint: stages."""
+    conn = get_db()
+    rows = conn.execute("SELECT stage_id, name FROM Stage ORDER BY stage_id").fetchall()
     conn.close()
     return jsonify([dict(r) for r in rows])
 
@@ -109,6 +129,17 @@ def create_event():
     conn.close()
     return jsonify(event_id=new_id, artist_id=body["artist_id"], stage_id=body["stage_id"],
                    day_id=body["day_id"], start_dt=body["start_dt"], duration_min=duration), 201
+
+
+@app.delete("/api/events/<int:event_id>")
+def delete_event(event_id):
+    conn = get_db()
+    with conn:
+        cur = conn.execute("DELETE FROM Event WHERE event_id = ?", (event_id,))
+    conn.close()
+    if cur.rowcount == 0:
+        return jsonify(error=f"event {event_id} not found"), 404
+    return "", 204
 
 
 if __name__ == "__main__":
